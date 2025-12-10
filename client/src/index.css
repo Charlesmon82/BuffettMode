@@ -50,46 +50,46 @@
   --font-mono: 'JetBrains Mono', monospace;
 }
 
-/* Dark Theme - Developer Studio Aesthetic */
+/* Dark Finance Theme - Buffett Investment Engine */
 :root {
-  --background: 224 71% 4%;
-  --foreground: 213 31% 91%;
+  --background: 222 47% 5%;
+  --foreground: 210 40% 98%;
 
-  --card: 224 71% 5%;
-  --card-foreground: 213 31% 91%;
+  --card: 222 47% 7%;
+  --card-foreground: 210 40% 98%;
 
-  --popover: 224 71% 5%;
-  --popover-foreground: 213 31% 91%;
+  --popover: 222 47% 7%;
+  --popover-foreground: 210 40% 98%;
 
-  --primary: 210 100% 50%; /* Vibrant Blue */
+  --primary: 142 71% 45%; /* Green - Buffett style growth */
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 223 47% 11%;
+  --secondary: 222 47% 11%;
   --secondary-foreground: 210 40% 98%;
 
-  --muted: 223 47% 11%;
-  --muted-foreground: 215 20% 65%;
+  --muted: 222 47% 11%;
+  --muted-foreground: 215 20% 55%;
 
-  --accent: 216 34% 17%;
-  --accent-foreground: 210 40% 98%;
+  --accent: 38 92% 50%; /* Gold accent */
+  --accent-foreground: 0 0% 0%;
 
-  --destructive: 0 63% 31%;
+  --destructive: 0 72% 51%;
   --destructive-foreground: 210 40% 98%;
 
-  --border: 216 34% 17%;
-  --input: 216 34% 17%;
-  --ring: 216 34% 17%;
+  --border: 222 47% 15%;
+  --input: 222 47% 15%;
+  --ring: 142 71% 45%;
 
-  --radius: 0.5rem;
+  --radius: 0.75rem;
 
-  --sidebar: 224 71% 4%;
+  --sidebar: 222 47% 5%;
   --sidebar-foreground: 215 20% 65%;
-  --sidebar-primary: 210 100% 50%;
+  --sidebar-primary: 142 71% 45%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 216 34% 17%;
+  --sidebar-accent: 222 47% 15%;
   --sidebar-accent-foreground: 210 40% 98%;
-  --sidebar-border: 216 34% 17%;
-  --sidebar-ring: 216 34% 17%;
+  --sidebar-border: 222 47% 15%;
+  --sidebar-ring: 142 71% 45%;
 }
 
 @layer base {
@@ -99,4 +99,40 @@
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
+
+/* Gradient text utility */
+.gradient-text {
+  background: linear-gradient(135deg, hsl(142 71% 45%), hsl(38 92% 50%));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Glow effect for cards */
+.glow-green {
+  box-shadow: 0 0 40px -10px hsl(142 71% 45% / 0.3);
+}
+
+.glow-gold {
+  box-shadow: 0 0 40px -10px hsl(38 92% 50% / 0.3);
 }

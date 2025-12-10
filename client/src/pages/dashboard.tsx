@@ -1,137 +1,503 @@
 import { useState } from "react";
-import { CreateReplModal } from "@/components/create-repl-modal";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, LayoutGrid, List, Folder, MoreHorizontal, Clock, Star } from "lucide-react";
-import { motion } from "framer-motion";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { 
+  Search, 
+  TrendingUp, 
+  PieChart, 
+  Building2, 
+  Zap, 
+  Heart, 
+  Pill,
+  DollarSign,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  BarChart3,
+  Briefcase
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
+import type { StockAnalysis, SectorResult, PortfolioResult } from "@shared/schema";
 
-export default function Dashboard() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+const formatPercent = (val: number | null) => {
+  if (val === null) return "—";
+  return (val * 100).toFixed(1) + "%";
+};
 
-  // Auto-open modal for demonstration if query param exists or just for effect
-  // useEffect(() => setIsModalOpen(true), []); 
+const formatCurrency = (val: number | null) => {
+  if (val === null) return "—";
+  return "$" + val.toFixed(2);
+};
 
-  const recentRepls = [
-    { title: "python-data-analysis", lang: "Python", time: "2 hours ago", icon: "🐍" },
-    { title: "react-dashboard-mockup", lang: "React", time: "Yesterday", icon: "⚛️" },
-    { title: "express-api-server", lang: "Node.js", time: "3 days ago", icon: "🟢" },
-    { title: "portfolio-site-v2", lang: "HTML/CSS", time: "1 week ago", icon: "🌐" },
-  ];
+const getRatingColor = (rating: string) => {
+  switch (rating) {
+    case "BUY": return "bg-green-500/20 text-green-400 border-green-500/30";
+    case "HOLD": return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+    case "AVOID": return "bg-red-500/20 text-red-400 border-red-500/30";
+    default: return "bg-gray-500/20 text-gray-400 border-gray-500/30";
+  }
+};
 
+const getRatingIcon = (rating: string) => {
+  switch (rating) {
+    case "BUY": return <CheckCircle2 className="h-4 w-4" />;
+    case "HOLD": return <AlertTriangle className="h-4 w-4" />;
+    case "AVOID": return <XCircle className="h-4 w-4" />;
+    default: return <AlertTriangle className="h-4 w-4" />;
+  }
+};
+
+const sectorIcons: Record<string, React.ReactNode> = {
+  tech: <Zap className="h-5 w-5" />,
+  energy: <TrendingUp className="h-5 w-5" />,
+  finance: <Building2 className="h-5 w-5" />,
+  consumer: <Heart className="h-5 w-5" />,
+  healthcare: <Pill className="h-5 w-5" />,
+};
+
+function StockCard({ stock }: { stock: StockAnalysis }) {
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/20">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-card border border-border rounded-xl p-4 hover:border-primary/50 transition-all"
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <h3 className="font-mono font-bold text-lg text-white">{stock.ticker}</h3>
+          <p className="text-2xl font-bold text-white">{formatCurrency(stock.price)}</p>
+        </div>
+        <Badge className={cn("flex items-center gap-1", getRatingColor(stock.Rating))}>
+          {getRatingIcon(stock.Rating)}
+          {stock.Rating}
+        </Badge>
+      </div>
       
-      {/* Sidebar Navigation */}
-      <div className="fixed left-0 top-0 bottom-0 w-64 border-r border-border bg-[#15181e] hidden md:flex flex-col">
-        <div className="p-6">
-          <div className="text-xl font-bold tracking-tight flex items-center gap-2">
-             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white font-mono font-bold">{`{}`}</div>
-             Replit
+      <div className="grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <span className="text-muted-foreground">ROE</span>
+          <p className="font-medium text-white">{formatPercent(stock.ROE)}</p>
+        </div>
+        <div>
+          <span className="text-muted-foreground">ROIC</span>
+          <p className="font-medium text-white">{formatPercent(stock.ROIC)}</p>
+        </div>
+        <div>
+          <span className="text-muted-foreground">FCF Yield</span>
+          <p className="font-medium text-white">{formatPercent(stock.FCF_Yield)}</p>
+        </div>
+        <div>
+          <span className="text-muted-foreground">D/E Ratio</span>
+          <p className="font-medium text-white">{stock.Debt_to_Equity?.toFixed(2) ?? "—"}</p>
+        </div>
+      </div>
+      
+      <Separator className="my-3" />
+      
+      <div className="flex justify-between items-center text-sm">
+        <div>
+          <span className="text-muted-foreground">Intrinsic Value</span>
+          <p className="font-medium text-primary">{formatCurrency(stock.Intrinsic_Value)}</p>
+        </div>
+        <div className="text-right">
+          <span className="text-muted-foreground">Margin of Safety</span>
+          <p className={cn(
+            "font-bold",
+            stock.Margin_of_Safety && stock.Margin_of_Safety > 0 ? "text-green-400" : "text-red-400"
+          )}>
+            {formatPercent(stock.Margin_of_Safety)}
+          </p>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function StockScanner() {
+  const [ticker, setTicker] = useState("");
+  const [searchedTicker, setSearchedTicker] = useState("");
+  
+  const { data, isLoading, error } = useQuery<StockAnalysis>({
+    queryKey: ["/api/scan", searchedTicker],
+    queryFn: async () => {
+      if (!searchedTicker) return null;
+      const res = await fetch(`/api/scan/${searchedTicker}`);
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    enabled: !!searchedTicker,
+  });
+  
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (ticker.trim()) {
+      setSearchedTicker(ticker.trim().toUpperCase());
+    }
+  };
+  
+  return (
+    <div className="space-y-6">
+      <form onSubmit={handleSearch} className="flex gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Enter ticker symbol (e.g., AAPL)"
+            value={ticker}
+            onChange={(e) => setTicker(e.target.value.toUpperCase())}
+            className="pl-10 bg-card border-border font-mono"
+            data-testid="input-ticker"
+          />
+        </div>
+        <Button type="submit" disabled={isLoading} data-testid="button-scan">
+          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Analyze"}
+        </Button>
+      </form>
+      
+      <AnimatePresence mode="wait">
+        {isLoading && (
+          <motion.div
+            key="loading"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="flex items-center justify-center py-12"
+          >
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-3 text-muted-foreground">Analyzing {searchedTicker}...</span>
+          </motion.div>
+        )}
+        
+        {data && !isLoading && (
+          <motion.div
+            key="result"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="max-w-md"
+          >
+            <StockCard stock={data} />
+          </motion.div>
+        )}
+        
+        {!data && !isLoading && !searchedTicker && (
+          <motion.div
+            key="empty"
+            className="text-center py-12 text-muted-foreground"
+          >
+            <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>Enter a stock ticker to analyze using Buffett-style metrics</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function SectorScreener() {
+  const [selectedSector, setSelectedSector] = useState<string | null>(null);
+  
+  const { data: sectorsData } = useQuery<{ sectors: string[] }>({
+    queryKey: ["/api/sectors"],
+    queryFn: async () => {
+      const res = await fetch("/api/sectors");
+      return res.json();
+    },
+  });
+  
+  const { data: sectorResult, isLoading } = useQuery<SectorResult>({
+    queryKey: ["/api/sector", selectedSector],
+    queryFn: async () => {
+      if (!selectedSector) return null;
+      const res = await fetch(`/api/sector/${selectedSector}`);
+      return res.json();
+    },
+    enabled: !!selectedSector,
+  });
+  
+  const sectors = sectorsData?.sectors || ["tech", "energy", "finance", "consumer", "healthcare"];
+  
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap gap-3">
+        {sectors.map((sector) => (
+          <Button
+            key={sector}
+            variant={selectedSector === sector ? "default" : "outline"}
+            onClick={() => setSelectedSector(sector)}
+            className="capitalize"
+            data-testid={`button-sector-${sector}`}
+          >
+            {sectorIcons[sector] || <Building2 className="h-5 w-5 mr-2" />}
+            <span className="ml-2">{sector}</span>
+          </Button>
+        ))}
+      </div>
+      
+      {isLoading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <span className="ml-3 text-muted-foreground">Screening {selectedSector} sector...</span>
+        </div>
+      )}
+      
+      {sectorResult && !isLoading && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="space-y-4"
+        >
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold capitalize">{sectorResult.sector} Sector</h3>
+            <Badge variant="outline">{sectorResult.tickers.length} stocks</Badge>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {sectorResult.all_results.map((stock, i) => (
+              <motion.div
+                key={stock.ticker}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+              >
+                <StockCard stock={stock} />
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+      
+      {!selectedSector && !isLoading && (
+        <div className="text-center py-12 text-muted-foreground">
+          <PieChart className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <p>Select a sector to screen stocks by margin of safety</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PortfolioBuilder() {
+  const [capital, setCapital] = useState("10000");
+  const [tickersInput, setTickersInput] = useState("AAPL, MSFT, GOOGL");
+  
+  const mutation = useMutation<PortfolioResult>({
+    mutationFn: async () => {
+      const tickers = tickersInput.split(",").map(t => t.trim().toUpperCase()).filter(Boolean);
+      const res = await fetch("/api/portfolio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          capital: parseFloat(capital),
+          tickers,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to build portfolio");
+      return res.json();
+    },
+  });
+  
+  const handleBuild = (e: React.FormEvent) => {
+    e.preventDefault();
+    mutation.mutate();
+  };
+  
+  return (
+    <div className="space-y-6">
+      <form onSubmit={handleBuild} className="space-y-4">
+        <div>
+          <label className="text-sm text-muted-foreground mb-2 block">Investment Capital ($)</label>
+          <div className="relative">
+            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="number"
+              placeholder="10000"
+              value={capital}
+              onChange={(e) => setCapital(e.target.value)}
+              className="pl-10 bg-card border-border"
+              data-testid="input-capital"
+            />
           </div>
         </div>
-
-        <div className="px-3 py-2 space-y-1">
-          <Button variant="secondary" className="w-full justify-start font-medium text-white bg-[#2b3240]/50"><LayoutGrid className="mr-2 h-4 w-4" /> Home</Button>
-          <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:text-white"><Folder className="mr-2 h-4 w-4" /> My Repls</Button>
-          <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:text-white"><Star className="mr-2 h-4 w-4" /> Favorites</Button>
-          <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:text-white"><Clock className="mr-2 h-4 w-4" /> Recent</Button>
+        
+        <div>
+          <label className="text-sm text-muted-foreground mb-2 block">Tickers (comma-separated)</label>
+          <Input
+            placeholder="AAPL, MSFT, GOOGL"
+            value={tickersInput}
+            onChange={(e) => setTickersInput(e.target.value.toUpperCase())}
+            className="bg-card border-border font-mono"
+            data-testid="input-portfolio-tickers"
+          />
         </div>
+        
+        <Button type="submit" disabled={mutation.isPending} className="w-full" data-testid="button-build-portfolio">
+          {mutation.isPending ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              Building Portfolio...
+            </>
+          ) : (
+            <>
+              <Briefcase className="h-4 w-4 mr-2" />
+              Build Portfolio
+            </>
+          )}
+        </Button>
+      </form>
+      
+      {mutation.data && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-4"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold">Portfolio Allocation</h3>
+              <p className="text-sm text-muted-foreground capitalize">{mutation.data.strategy.replace(/_/g, " ")}</p>
+            </div>
+            <Badge variant="outline" className="text-primary border-primary">
+              ${mutation.data.total_capital.toLocaleString()}
+            </Badge>
+          </div>
+          
+          <div className="space-y-3">
+            {mutation.data.allocations.map((alloc, i) => (
+              <motion.div
+                key={alloc.ticker}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.1 }}
+                className="bg-card border border-border rounded-xl p-4 flex items-center justify-between"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="font-mono font-bold text-white">{alloc.ticker}</div>
+                  <Badge className={getRatingColor(alloc.rating)}>{alloc.rating}</Badge>
+                  {alloc.weight !== undefined && (
+                    <span className="text-sm text-muted-foreground">
+                      {(alloc.weight * 100).toFixed(1)}% weight
+                    </span>
+                  )}
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-white">${alloc.allocated_cash.toLocaleString()}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {alloc.shares} shares @ ${alloc.price.toFixed(2)}
+                  </p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+      
+      {!mutation.data && !mutation.isPending && (
+        <div className="text-center py-12 text-muted-foreground">
+          <PieChart className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <p>Enter your capital and tickers to build a value-weighted portfolio</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
-        <div className="mt-auto p-4 border-t border-border">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-blue-500" />
-            <div className="flex-1 overflow-hidden">
-              <div className="text-sm font-medium truncate">Demo User</div>
-              <div className="text-xs text-muted-foreground truncate">Hacker Plan</div>
+export default function Dashboard() {
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Header */}
+      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                <TrendingUp className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h1 className="font-bold text-xl text-white">Buffett Investment Engine</h1>
+                <p className="text-xs text-muted-foreground">Value investing metrics</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-
+      </header>
+      
       {/* Main Content */}
-      <div className="md:pl-64 flex flex-col min-h-screen">
-        {/* Header */}
-        <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-[#1c1f26]">
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-             <span className="hover:text-white cursor-pointer transition-colors">Home</span>
-             <span>/</span>
-             <span className="text-white font-medium">Dashboard</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon"><Search className="h-4 w-4" /></Button>
-            <Button 
-              onClick={() => setIsModalOpen(true)}
-              className="bg-primary hover:bg-primary/90 text-white gap-2 shadow-lg shadow-primary/20"
-            >
-              <Plus className="h-4 w-4" /> Create Repl
-            </Button>
-          </div>
-        </header>
-
-        {/* Dashboard Content */}
-        <main className="p-8 flex-1 bg-[#0e1116]">
-          <div className="max-w-6xl mx-auto space-y-8">
-            
-            <section>
-              <h2 className="text-lg font-semibold mb-4 text-white">Recent Repls</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {recentRepls.map((repl, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.1 }}
-                    className="group p-4 rounded-xl border border-border bg-[#1c1f26] hover:border-primary/50 transition-all cursor-pointer hover:shadow-xl hover:shadow-black/20"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="text-2xl p-2 bg-[#2b3240]/50 rounded-lg group-hover:scale-110 transition-transform">{repl.icon}</div>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100"><MoreHorizontal className="h-4 w-4" /></Button>
-                    </div>
-                    <div className="font-medium text-white mb-1 truncate">{repl.title}</div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>{repl.lang}</span>
-                      <span>•</span>
-                      <span>{repl.time}</span>
-                    </div>
-                  </motion.div>
-                ))}
-                
-                {/* Add New Card */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 }}
-                  onClick={() => setIsModalOpen(true)}
-                  className="p-4 rounded-xl border border-dashed border-border bg-transparent hover:bg-[#1c1f26] hover:border-primary/50 transition-all cursor-pointer flex flex-col items-center justify-center text-muted-foreground hover:text-primary gap-3 min-h-[140px]"
-                >
-                  <div className="p-3 rounded-full bg-[#2b3240] group-hover:bg-primary/20">
-                    <Plus className="h-6 w-6" />
-                  </div>
-                  <span className="font-medium">Create new Repl</span>
-                </motion.div>
-              </div>
-            </section>
-
-            <section className="pt-8">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-white">Your Folders</h2>
-                <Button variant="link" className="text-primary h-auto p-0">View all</Button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {["University Projects", "Side Hustles", "Experiments"].map((folder, i) => (
-                  <div key={i} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-[#1c1f26] hover:bg-[#2b3240] transition-colors cursor-pointer">
-                    <Folder className="h-5 w-5 text-blue-400" />
-                    <span className="text-sm font-medium text-gray-200">{folder}</span>
-                    <span className="ml-auto text-xs text-muted-foreground">3 items</span>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-          </div>
-        </main>
-      </div>
-
-      <CreateReplModal open={isModalOpen} onOpenChange={setIsModalOpen} />
+      <main className="container mx-auto px-6 py-8">
+        <Tabs defaultValue="scan" className="space-y-6">
+          <TabsList className="bg-card border border-border p-1">
+            <TabsTrigger value="scan" className="data-[state=active]:bg-primary data-[state=active]:text-white">
+              <Search className="h-4 w-4 mr-2" />
+              Stock Scanner
+            </TabsTrigger>
+            <TabsTrigger value="sector" className="data-[state=active]:bg-primary data-[state=active]:text-white">
+              <PieChart className="h-4 w-4 mr-2" />
+              Sector Screener
+            </TabsTrigger>
+            <TabsTrigger value="portfolio" className="data-[state=active]:bg-primary data-[state=active]:text-white">
+              <Briefcase className="h-4 w-4 mr-2" />
+              Portfolio Builder
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="scan">
+            <Card className="border-border bg-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Search className="h-5 w-5 text-primary" />
+                  Scan Individual Stocks
+                </CardTitle>
+                <CardDescription>
+                  Analyze any stock using Warren Buffett-style metrics: ROE, ROIC, FCF Yield, Debt/Equity, and intrinsic value.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <StockScanner />
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="sector">
+            <Card className="border-border bg-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <PieChart className="h-5 w-5 text-primary" />
+                  Screen by Sector
+                </CardTitle>
+                <CardDescription>
+                  Analyze entire sectors and rank stocks by margin of safety.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <SectorScreener />
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="portfolio">
+            <Card className="border-border bg-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Briefcase className="h-5 w-5 text-primary" />
+                  Build Your Portfolio
+                </CardTitle>
+                <CardDescription>
+                  Allocate capital across stocks using margin-of-safety weighted strategy.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <PortfolioBuilder />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </main>
     </div>
   );
 }
