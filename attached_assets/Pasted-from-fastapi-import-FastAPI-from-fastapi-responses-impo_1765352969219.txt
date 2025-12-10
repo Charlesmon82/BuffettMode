@@ -1,0 +1,399 @@
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
+import yfinance as yf
+from typing import List, Optional
+
+app = FastAPI(
+    title="Buffett Investment Engine",
+    description="Scan stocks, screen sectors, and build simple portfolios using Warren Buffett-style metrics.",
+    version="1.0"
+)
+
+# ----------------------------
+# 1. CORE METRIC CALCULATIONS
+# ----------------------------
+
+def calculate_roe(ticker: str) -> Optional[float]:
+    try:
+        stock = yf.Ticker(ticker)
+        inc = stock.financials
+        bs = stock.balance_sheet
+
+        # handle slightly different label names
+        net_income = inc.loc["Net Income"].iloc[0]
+        equity_row_candidates = [
+            "Total Stockholder Equity",
+            "Total Stockholders Equity",
+            "Total Stockholders' Equity",
+            "Stockholders Equity"
+        ]
+        equity = None
+        for row in equity_row_candidates:
+            if row in bs.index:
+                equity = bs.loc[row].iloc[0]
+                break
+
+        if equity is None or equity == 0:
+            return None
+
+        return float(net_income / equity)
+    except Exception:
+        return None
+
+
+def calculate_roic(ticker: str) -> Optional[float]:
+    try:
+        stock = yf.Ticker(ticker)
+        inc = stock.financials
+        bs = stock.balance_sheet
+
+        ebit_row_candidates = ["Ebit", "EBIT"]
+        ebit = None
+        for row in ebit_row_candidates:
+            if row in inc.index:
+                ebit = inc.loc[row].iloc[0]
+                break
+
+        if ebit is None:
+            return None
+
+        total_assets = bs.loc["Total Assets"].iloc[0]
+        current_liab = bs.loc["Total Current Liabilities"].iloc[0]
+        invested_capital = total_assets - current_liab
+
+        if invested_capital == 0:
+            return None
+
+        return float(ebit / invested_capital)
+    except Exception:
+        return None
+
+
+def calculate_fcf_yield(ticker: str) -> Optional[float]:
+    try:
+        stock = yf.Ticker(ticker)
+        cf = stock.cashflow
+
+        cfo = cf.loc["Total Cash From Operating Activities"].iloc[0]
+        capex = abs(cf.loc["Capital Expenditures"].iloc[0])
+        fcf = cfo - capex
+
+        hist = stock.history(period="1d")
+        price = hist["Close"].iloc[-1]
+        shares = stock.info.get("sharesOutstanding", None)
+
+        if not shares:
+            return None
+
+        market_cap = price * shares
+        if market_cap == 0:
+            return None
+
+        return float(fcf / market_cap)
+    except Exception:
+        return None
+
+
+def calculate_de_ratio(ticker: str) -> Optional[float]:
+    try:
+        stock = yf.Ticker(ticker)
+        bs = stock.balance_sheet
+
+        long_term_debt_row_candidates = [
+            "Long Term Debt",
+            "Long Term Debt Noncurrent",
+            "Long Term Debt And Capital Lease Obligation"
+        ]
+        debt = None
+        for row in long_term_debt_row_candidates:
+            if row in bs.index:
+                debt = bs.loc[row].iloc[0]
+                break
+
+        if debt is None:
+            return None
+
+        equity_row_candidates = [
+            "Total Stockholder Equity",
+            "Total Stockholders Equity",
+            "Total Stockholders' Equity",
+            "Stockholders Equity"
+        ]
+        equity = None
+        for row in equity_row_candidates:
+            if row in bs.index:
+                equity = bs.loc[row].iloc[0]
+                break
+
+        if equity is None or equity == 0:
+            return None
+
+        return float(debt / equity)
+    except Exception:
+        return None
+
+
+def calculate_intrinsic_value_per_share(ticker: str) -> Optional[float]:
+    """
+    Very simple Buffett-style intrinsic value:
+    Owner earnings discounted as a perpetuity.
+    owner_earnings = Net Income + Depreciation - CapEx
+    """
+    try:
+        stock = yf.Ticker(ticker)
+        inc = stock.financials
+        cf = stock.cashflow
+
+        net_income = inc.loc["Net Income"].iloc[0]
+        dep_row_candidates = ["Depreciation", "Depreciation & amortization"]
+        depreciation = 0
+        for row in dep_row_candidates:
+            if row in cf.index:
+                depreciation = cf.loc[row].iloc[0]
+                break
+
+        capex = abs(cf.loc["Capital Expenditures"].iloc[0])
+        owner_earnings = net_income + depreciation - capex
+
+        shares = stock.info.get("sharesOutstanding", None)
+        if not shares or owner_earnings <= 0:
+            return None
+
+        # Conservative assumptions
+        growth_rate = 0.05   # 5%
+        discount_rate = 0.09  # 9%
+
+        if discount_rate <= growth_rate:
+            return None
+
+        intrinsic_total = owner_earnings * (1 + growth_rate) / (discount_rate - growth_rate)
+        intrinsic_per_share = intrinsic_total / shares
+        return float(intrinsic_per_share)
+    except Exception:
+        return None
+
+
+def analyze_ticker(ticker: str) -> dict:
+    """
+    Run full Buffett-style analysis on a single ticker.
+    """
+    ticker = ticker.upper()
+    stock = yf.Ticker(ticker)
+    hist = stock.history(period="1d")
+    if hist.empty:
+        current_price = None
+    else:
+        current_price = float(hist["Close"].iloc[-1])
+
+    roe = calculate_roe(ticker)
+    roic = calculate_roic(ticker)
+    fcf_yield = calculate_fcf_yield(ticker)
+    de_ratio = calculate_de_ratio(ticker)
+    intrinsic = calculate_intrinsic_value_per_share(ticker)
+
+    if intrinsic and current_price:
+        margin_of_safety = (intrinsic - current_price) / intrinsic
+    else:
+        margin_of_safety = None
+
+    # Simple rating logic
+    if intrinsic is None or current_price is None:
+        rating = "DATA_INCOMPLETE"
+    elif current_price < intrinsic * 0.7:
+        rating = "BUY"
+    elif current_price < intrinsic:
+        rating = "HOLD"
+    else:
+        rating = "AVOID"
+
+    return {
+        "ticker": ticker,
+        "price": current_price,
+        "ROE": roe,
+        "ROIC": roic,
+        "FCF_Yield": fcf_yield,
+        "Debt_to_Equity": de_ratio,
+        "Intrinsic_Value": intrinsic,
+        "Margin_of_Safety": margin_of_safety,
+        "Rating": rating,
+    }
+
+# ----------------------------
+# 2. SIMPLE SECTOR DEFINITIONS
+# ----------------------------
+
+SECTOR_TICKERS = {
+    "tech": ["AAPL", "MSFT", "NVDA", "GOOGL", "META", "ADBE", "ORCL", "AMD", "CRM", "AVGO"],
+    "energy": ["XOM", "CVX", "COP", "EOG", "SLB", "MPC", "PSX"],
+    "finance": ["JPM", "BAC", "WFC", "GS", "MS", "BLK", "SCHW"],
+    "consumer": ["PG", "KO", "PEP", "MCD", "COST", "WMT", "DIS"],
+}
+
+# ----------------------------
+# 3. PORTFOLIO REQUEST MODEL
+# ----------------------------
+
+class PortfolioRequest(BaseModel):
+    capital: float
+    tickers: List[str]
+
+
+# ----------------------------
+# 4. ROUTES / ENDPOINTS
+# ----------------------------
+
+@app.get("/", response_class=HTMLResponse)
+def dashboard_home():
+    """
+    Simple dashboard-style home page.
+    """
+    return """
+    <html>
+      <head>
+        <title>Buffett Investment Engine</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 40px; background: #0b1120; color: #e5e7eb; }
+          h1 { color: #38bdf8; }
+          a { color: #22c55e; }
+          code { background: #111827; padding: 2px 4px; border-radius: 4px; }
+          .card { background:#020617; padding:20px; border-radius:12px; margin-bottom:20px; border:1px solid #1f2937; }
+        </style>
+      </head>
+      <body>
+        <h1>Buffett Investment Engine</h1>
+        <div class="card">
+          <h2>1️⃣ Scan a single stock</h2>
+          <p>Use the <code>GET /scan/{{ticker}}</code> endpoint.</p>
+          <p>Example: <code>/scan/AAPL</code> or <code>/scan/MSFT</code></p>
+        </div>
+
+        <div class="card">
+          <h2>2️⃣ Screen a sector</h2>
+          <p>Use the <code>GET /sector/{sector_name}</code> endpoint.</p>
+          <p>Available sectors: <code>tech</code>, <code>energy</code>, <code>finance</code>, <code>consumer</code></p>
+          <p>Example: <code>/sector/tech</code></p>
+        </div>
+
+        <div class="card">
+          <h2>3️⃣ Build a simple portfolio</h2>
+          <p>Use the <code>POST /portfolio</code> endpoint with JSON:</p>
+          <pre>{
+  "capital": 10000,
+  "tickers": ["AAPL", "MSFT", "NVDA"]
+}</pre>
+        </div>
+
+        <div class="card">
+          <h2>4️⃣ Interactive API docs</h2>
+          <p>Go to <a href="/docs">/docs</a> to explore and test all endpoints with buttons.</p>
+        </div>
+      </body>
+    </html>
+    """
+
+
+@app.get("/scan/{ticker}")
+def scan_ticker(ticker: str):
+    """
+    Analyze a single stock using Buffett-style metrics.
+    """
+    return analyze_ticker(ticker)
+
+
+@app.get("/sector/{sector_name}")
+def scan_sector(sector_name: str):
+    """
+    Screen a simple, predefined sector.
+    Returns each stock + metrics, sorted by Margin of Safety descending.
+    """
+    key = sector_name.lower()
+    if key not in SECTOR_TICKERS:
+        return {
+            "sector": sector_name,
+            "available_sectors": list(SECTOR_TICKERS.keys()),
+            "error": "Unknown sector. Use one of the available_sectors."
+        }
+
+    tickers = SECTOR_TICKERS[key]
+    results = [analyze_ticker(t) for t in tickers]
+
+    # sort by margin of safety (highest first), safely handling None
+    results_sorted = sorted(
+        results,
+        key=lambda x: (x.get("Margin_of_Safety") is not None, x.get("Margin_of_Safety") or -999),
+        reverse=True
+    )
+
+    top5 = results_sorted[:5]
+
+    return {
+        "sector": key,
+        "tickers": tickers,
+        "top_5_by_margin_of_safety": top5,
+        "all_results": results_sorted
+    }
+
+
+@app.post("/portfolio")
+def build_portfolio(req: PortfolioRequest):
+    """
+    Very simple portfolio builder:
+    - Analyze each ticker
+    - Use Margin of Safety as the 'score'
+    - Allocate capital weighted by score
+    - Return suggested $ and share quantities
+    """
+    analyses = [analyze_ticker(t) for t in req.tickers]
+
+    # Build scores – if margin_of_safety is missing or < 0, treat as 0
+    scores = []
+    for a in analyses:
+        mos = a.get("Margin_of_Safety")
+        if mos is None or mos <= 0:
+            scores.append(0.0)
+        else:
+            scores.append(float(mos))
+
+    total_score = sum(scores)
+    if total_score == 0:
+        # if all scores are zero/negative, just equal-weight
+        per_stock = req.capital / max(len(analyses), 1)
+        allocations = []
+        for a in analyses:
+            price = a.get("price") or 0
+            shares = int(per_stock / price) if price else 0
+            allocations.append({
+                "ticker": a["ticker"],
+                "rating": a["Rating"],
+                "price": price,
+                "allocated_cash": round(per_stock, 2),
+                "shares": shares
+            })
+        return {
+            "strategy": "equal_weight (no positive margin_of_safety found)",
+            "total_capital": req.capital,
+            "allocations": allocations
+        }
+
+    # Margin-of-safety-weighted allocation
+    allocations = []
+    for a, score in zip(analyses, scores):
+        weight = score / total_score if total_score > 0 else 0
+        cash_for_this = req.capital * weight
+        price = a.get("price") or 0
+        shares = int(cash_for_this / price) if price else 0
+        allocations.append({
+            "ticker": a["ticker"],
+            "rating": a["Rating"],
+            "price": price,
+            "weight": round(weight, 3),
+            "allocated_cash": round(cash_for_this, 2),
+            "shares": shares
+        })
+
+    return {
+        "strategy": "margin_of_safety_weighted",
+        "total_capital": req.capital,
+        "allocations": allocations
+    }
