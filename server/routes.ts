@@ -106,13 +106,16 @@ export async function registerRoutes(
       if (totalScore === 0) {
         // Equal weight if no positive margins
         const perStock = capital / Math.max(analyses.length, 1);
-        const allocations = analyses.map(a => ({
-          ticker: a.ticker,
-          rating: a.Rating,
-          price: a.price ?? 0,
-          allocated_cash: Math.round(perStock * 100) / 100,
-          shares: a.price ? Math.floor(perStock / a.price) : 0,
-        }));
+        const allocations = analyses.map(a => {
+          const price = a.price ?? 0;
+          return {
+            ticker: a.ticker,
+            rating: a.Rating,
+            price,
+            allocated_cash: Math.round(perStock * 100) / 100,
+            shares: price > 0 ? Math.floor(perStock / price) : 0,
+          };
+        });
         
         const response: PortfolioResult = {
           strategy: "equal_weight (no positive margin_of_safety found)",

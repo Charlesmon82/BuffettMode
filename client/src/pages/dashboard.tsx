@@ -387,9 +387,9 @@ function PortfolioBuilder() {
                   )}
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-white">${alloc.allocated_cash.toLocaleString()}</p>
+                  <p className="font-bold text-white">${(alloc.allocated_cash ?? 0).toLocaleString()}</p>
                   <p className="text-sm text-muted-foreground">
-                    {alloc.shares} shares @ ${alloc.price.toFixed(2)}
+                    {alloc.shares ?? 0} shares @ ${(alloc.price ?? 0).toFixed(2)}
                   </p>
                 </div>
               </motion.div>
