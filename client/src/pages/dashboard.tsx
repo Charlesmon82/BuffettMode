@@ -20,11 +20,25 @@ import {
   XCircle,
   Loader2,
   BarChart3,
-  Briefcase
+  Briefcase,
+  Layers,
+  RefreshCw
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { StockAnalysis, SectorResult, PortfolioResult } from "@shared/schema";
+
+interface ScanAllResult {
+  total_stocks: number;
+  summary: {
+    buy: number;
+    hold: number;
+    avoid: number;
+    incomplete: number;
+  };
+  top_10_by_margin_of_safety: StockAnalysis[];
+  all_results: StockAnalysis[];
+}
 
 const formatPercent = (val: number | null) => {
   if (val === null) return "—";
@@ -408,6 +422,129 @@ function PortfolioBuilder() {
   );
 }
 
+function ScanAllStocks() {
+  const [hasStarted, setHasStarted] = useState(false);
+  
+  const { data, isLoading, refetch } = useQuery<ScanAllResult>({
+    queryKey: ["/api/scan-all"],
+    queryFn: async () => {
+      const res = await fetch("/api/scan-all");
+      if (!res.ok) throw new Error("Failed to scan all stocks");
+      return res.json();
+    },
+    enabled: hasStarted,
+  });
+  
+  const handleScan = () => {
+    setHasStarted(true);
+    if (data) {
+      refetch();
+    }
+  };
+  
+  return (
+    <div className="space-y-6">
+      {!hasStarted && (
+        <div className="text-center py-8">
+          <Layers className="h-16 w-16 mx-auto mb-4 text-primary opacity-70" />
+          <h3 className="text-lg font-semibold text-white mb-2">Scan All Stocks</h3>
+          <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+            Analyze all {45}+ stocks across Tech, Energy, Finance, Consumer, and Healthcare sectors using Buffett-style metrics.
+          </p>
+          <Button onClick={handleScan} size="lg" data-testid="button-scan-all">
+            <Layers className="h-5 w-5 mr-2" />
+            Start Full Scan
+          </Button>
+        </div>
+      )}
+      
+      {isLoading && (
+        <div className="flex flex-col items-center justify-center py-16">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+          <p className="text-lg text-white">Scanning all stocks...</p>
+          <p className="text-sm text-muted-foreground">This may take a minute</p>
+        </div>
+      )}
+      
+      {data && !isLoading && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="space-y-6"
+        >
+          {/* Summary Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 text-center">
+              <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-green-400" />
+              <p className="text-3xl font-bold text-green-400">{data.summary.buy}</p>
+              <p className="text-sm text-green-400/70">BUY</p>
+            </div>
+            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 text-center">
+              <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-yellow-400" />
+              <p className="text-3xl font-bold text-yellow-400">{data.summary.hold}</p>
+              <p className="text-sm text-yellow-400/70">HOLD</p>
+            </div>
+            <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-center">
+              <XCircle className="h-8 w-8 mx-auto mb-2 text-red-400" />
+              <p className="text-3xl font-bold text-red-400">{data.summary.avoid}</p>
+              <p className="text-sm text-red-400/70">AVOID</p>
+            </div>
+            <div className="bg-gray-500/10 border border-gray-500/30 rounded-xl p-4 text-center">
+              <BarChart3 className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+              <p className="text-3xl font-bold text-gray-400">{data.summary.incomplete}</p>
+              <p className="text-sm text-gray-400/70">INCOMPLETE</p>
+            </div>
+          </div>
+          
+          {/* Refresh Button */}
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold text-white">
+              Top 10 by Margin of Safety
+            </h3>
+            <Button variant="outline" size="sm" onClick={() => refetch()} data-testid="button-refresh-scan">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
+          
+          {/* Top 10 Stocks */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {data.top_10_by_margin_of_safety.map((stock, i) => (
+              <motion.div
+                key={stock.ticker}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+              >
+                <StockCard stock={stock} />
+              </motion.div>
+            ))}
+          </div>
+          
+          {/* All Results */}
+          <div className="pt-4">
+            <h3 className="text-lg font-semibold text-white mb-4">
+              All {data.total_stocks} Stocks
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {data.all_results.map((stock, i) => (
+                <motion.div
+                  key={stock.ticker}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(i * 0.02, 0.5) }}
+                >
+                  <StockCard stock={stock} />
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -443,6 +580,10 @@ export default function Dashboard() {
             <TabsTrigger value="portfolio" className="data-[state=active]:bg-primary data-[state=active]:text-white">
               <Briefcase className="h-4 w-4 mr-2" />
               Portfolio Builder
+            </TabsTrigger>
+            <TabsTrigger value="scan-all" className="data-[state=active]:bg-primary data-[state=active]:text-white">
+              <Layers className="h-4 w-4 mr-2" />
+              Scan All
             </TabsTrigger>
           </TabsList>
           
@@ -493,6 +634,23 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <PortfolioBuilder />
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="scan-all">
+            <Card className="border-border bg-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Layers className="h-5 w-5 text-primary" />
+                  Scan All Stocks
+                </CardTitle>
+                <CardDescription>
+                  Analyze all stocks across every sector at once and find the best opportunities.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ScanAllStocks />
               </CardContent>
             </Card>
           </TabsContent>

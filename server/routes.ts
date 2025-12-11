@@ -77,6 +77,50 @@ export async function registerRoutes(
     });
   });
   
+  // Scan all stocks across all sectors
+  app.get("/api/scan-all", async (_req, res) => {
+    try {
+      // Get all unique tickers from all sectors
+      const allTickersSet = new Set(Object.values(SECTOR_TICKERS).flat());
+      const allTickers = Array.from(allTickersSet);
+      
+      console.log(`Scanning ${allTickers.length} stocks...`);
+      
+      // Analyze all tickers in parallel
+      const results = await Promise.all(
+        allTickers.map(t => analyzeTicker(t))
+      );
+      
+      // Sort by margin of safety (highest first)
+      const sortedResults = [...results].sort((a, b) => {
+        const aVal = a.Margin_of_Safety ?? -999;
+        const bVal = b.Margin_of_Safety ?? -999;
+        return bVal - aVal;
+      });
+      
+      // Group by rating
+      const buyStocks = sortedResults.filter(s => s.Rating === "BUY");
+      const holdStocks = sortedResults.filter(s => s.Rating === "HOLD");
+      const avoidStocks = sortedResults.filter(s => s.Rating === "AVOID");
+      const incompleteStocks = sortedResults.filter(s => s.Rating === "DATA_INCOMPLETE");
+      
+      res.json({
+        total_stocks: allTickers.length,
+        summary: {
+          buy: buyStocks.length,
+          hold: holdStocks.length,
+          avoid: avoidStocks.length,
+          incomplete: incompleteStocks.length,
+        },
+        top_10_by_margin_of_safety: sortedResults.slice(0, 10),
+        all_results: sortedResults,
+      });
+    } catch (error) {
+      console.error("Scan all error:", error);
+      res.status(500).json({ error: "Failed to scan all stocks" });
+    }
+  });
+  
   // Build portfolio
   app.post("/api/portfolio", async (req, res) => {
     try {
