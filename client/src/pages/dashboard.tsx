@@ -74,6 +74,11 @@ const sectorIcons: Record<string, React.ReactNode> = {
   finance: <Building2 className="h-5 w-5" />,
   consumer: <Heart className="h-5 w-5" />,
   healthcare: <Pill className="h-5 w-5" />,
+  industrials: <Building2 className="h-5 w-5" />,
+  materials: <Layers className="h-5 w-5" />,
+  utilities: <Zap className="h-5 w-5" />,
+  realestate: <Building2 className="h-5 w-5" />,
+  communication: <BarChart3 className="h-5 w-5" />,
 };
 
 function StockCard({ stock }: { stock: StockAnalysis }) {
@@ -449,7 +454,7 @@ function ScanAllStocks() {
           <Layers className="h-16 w-16 mx-auto mb-4 text-primary opacity-70" />
           <h3 className="text-lg font-semibold text-white mb-2">Scan All Stocks</h3>
           <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-            Analyze all {45}+ stocks across Tech, Energy, Finance, Consumer, and Healthcare sectors using Buffett-style metrics.
+            Analyze 350+ stocks across 10 sectors including Tech, Energy, Finance, Healthcare, Industrials, Materials, Utilities, Real Estate, and Communication using Buffett-style metrics.
           </p>
           <Button onClick={handleScan} size="lg" data-testid="button-scan-all">
             <Layers className="h-5 w-5 mr-2" />
