@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { analyzeTicker } from "./stock-analyzer";
+import { analyzeTicker, analyzeTickersBatch } from "./stock-analyzer";
 import { SECTOR_TICKERS, portfolioRequestSchema } from "@shared/schema";
 import type { StockAnalysis, SectorResult, PortfolioResult } from "@shared/schema";
 
@@ -41,10 +41,8 @@ export async function registerRoutes(
       
       const tickers = SECTOR_TICKERS[key];
       
-      // Analyze all tickers in parallel (with some rate limiting)
-      const results = await Promise.all(
-        tickers.map(t => analyzeTicker(t))
-      );
+      // Analyze all tickers with rate limiting
+      const results = await analyzeTickersBatch(tickers, 5);
       
       // Sort by margin of safety (highest first)
       const sortedResults = [...results].sort((a, b) => {
@@ -86,10 +84,8 @@ export async function registerRoutes(
       
       console.log(`Scanning ${allTickers.length} stocks...`);
       
-      // Analyze all tickers in parallel
-      const results = await Promise.all(
-        allTickers.map(t => analyzeTicker(t))
-      );
+      // Analyze all tickers with rate limiting
+      const results = await analyzeTickersBatch(allTickers, 10);
       
       // Sort by margin of safety (highest first)
       const sortedResults = [...results].sort((a, b) => {

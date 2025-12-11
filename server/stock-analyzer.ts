@@ -1,107 +1,69 @@
-import yahooFinance from "yahoo-finance2";
+import YahooFinance from "yahoo-finance2";
 import type { StockAnalysis } from "@shared/schema";
 
-export async function calculateROE(ticker: string): Promise<number | null> {
-  try {
-    const quote = await yahooFinance.quoteSummary(ticker, { modules: ["financialData", "defaultKeyStatistics"] });
-    const roe = (quote as any).financialData?.returnOnEquity;
-    return roe !== undefined ? roe : null;
-  } catch {
-    return null;
-  }
-}
+const yahooFinance = new YahooFinance();
 
-export async function calculateROIC(ticker: string): Promise<number | null> {
-  try {
-    const quote = await yahooFinance.quoteSummary(ticker, { modules: ["financialData"] });
-    const data = quote as any;
-    const roe = data.financialData?.returnOnEquity;
-    const roa = data.financialData?.returnOnAssets;
-    if (roe !== undefined && roa !== undefined) {
-      return (roe + roa) / 2;
-    }
-    return roe ?? roa ?? null;
-  } catch {
-    return null;
-  }
-}
-
-export async function calculateFCFYield(ticker: string): Promise<number | null> {
-  try {
-    const quote = await yahooFinance.quoteSummary(ticker, { modules: ["financialData", "price"] });
-    const data = quote as any;
-    const fcf = data.financialData?.freeCashflow;
-    const marketCap = data.price?.marketCap;
-    
-    if (fcf && marketCap && marketCap > 0) {
-      return fcf / marketCap;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-export async function calculateDERatio(ticker: string): Promise<number | null> {
-  try {
-    const quote = await yahooFinance.quoteSummary(ticker, { modules: ["financialData"] });
-    const debtToEquity = (quote as any).financialData?.debtToEquity;
-    return debtToEquity !== undefined ? debtToEquity / 100 : null;
-  } catch {
-    return null;
-  }
-}
-
-export async function calculateIntrinsicValue(ticker: string): Promise<number | null> {
-  try {
-    const quote = await yahooFinance.quoteSummary(ticker, { 
-      modules: ["financialData", "defaultKeyStatistics", "price"] 
-    });
-    
-    const data = quote as any;
-    const eps = data.defaultKeyStatistics?.trailingEps;
-    if (!eps || eps <= 0) return null;
-    
-    const growthRate = 0.05;
-    const discountRate = 0.09;
-    
-    if (discountRate <= growthRate) return null;
-    
-    const intrinsicValue = (eps * (1 + growthRate)) / (discountRate - growthRate);
-    
-    return intrinsicValue > 0 ? intrinsicValue : null;
-  } catch {
-    return null;
-  }
-}
-
-export async function getCurrentPrice(ticker: string): Promise<number | null> {
-  try {
-    const quote = await yahooFinance.quote(ticker);
-    return (quote as any).regularMarketPrice ?? null;
-  } catch {
-    return null;
-  }
-}
-
+// Single efficient API call that gets all data at once
 export async function analyzeTicker(ticker: string): Promise<StockAnalysis> {
   const upperTicker = ticker.toUpperCase();
   
   try {
-    const [price, roe, roic, fcfYield, deRatio, intrinsic] = await Promise.all([
-      getCurrentPrice(upperTicker),
-      calculateROE(upperTicker),
-      calculateROIC(upperTicker),
-      calculateFCFYield(upperTicker),
-      calculateDERatio(upperTicker),
-      calculateIntrinsicValue(upperTicker),
-    ]);
+    // Make a single API call to get all needed data
+    let quoteResult: any = null;
+    let summaryResult: any = null;
     
+    try {
+      quoteResult = await yahooFinance.quote(upperTicker);
+    } catch (e) {
+      // Quote failed, continue with summary data only
+    }
+    
+    try {
+      summaryResult = await yahooFinance.quoteSummary(upperTicker, { 
+        modules: ["financialData", "defaultKeyStatistics", "price"] 
+      });
+    } catch (e) {
+      // Summary failed, continue with quote data only
+    }
+    
+    const quote = quoteResult as any;
+    const summary = summaryResult as any;
+    
+    // Extract price from quote
+    const price = quote?.regularMarketPrice ?? null;
+    
+    // Extract metrics from summary
+    const financialData = summary?.financialData;
+    const keyStats = summary?.defaultKeyStatistics;
+    
+    const roe = financialData?.returnOnEquity ?? null;
+    const roa = financialData?.returnOnAssets ?? null;
+    const roic = (roe !== null && roa !== null) ? (roe + roa) / 2 : (roe ?? roa);
+    
+    const fcf = financialData?.freeCashflow ?? null;
+    const marketCap = summary?.price?.marketCap ?? quote?.marketCap ?? null;
+    const fcfYield = (fcf && marketCap && marketCap > 0) ? fcf / marketCap : null;
+    
+    const debtToEquityRaw = financialData?.debtToEquity;
+    const deRatio = debtToEquityRaw !== undefined ? debtToEquityRaw / 100 : null;
+    
+    // Calculate intrinsic value using trailing EPS
+    const eps = keyStats?.trailingEps ?? null;
+    let intrinsic: number | null = null;
+    
+    if (eps && eps > 0) {
+      const growthRate = 0.05;
+      const discountRate = 0.09;
+      intrinsic = (eps * (1 + growthRate)) / (discountRate - growthRate);
+    }
+    
+    // Calculate margin of safety
     let marginOfSafety: number | null = null;
     if (intrinsic && price && intrinsic > 0) {
       marginOfSafety = (intrinsic - price) / intrinsic;
     }
     
+    // Determine rating
     let rating: StockAnalysis["Rating"];
     if (intrinsic === null || price === null) {
       rating = "DATA_INCOMPLETE";
@@ -125,6 +87,7 @@ export async function analyzeTicker(ticker: string): Promise<StockAnalysis> {
       Rating: rating,
     };
   } catch (error) {
+    console.error(`Error analyzing ${upperTicker}:`, error);
     return {
       ticker: upperTicker,
       price: null,
@@ -137,4 +100,22 @@ export async function analyzeTicker(ticker: string): Promise<StockAnalysis> {
       Rating: "DATA_INCOMPLETE",
     };
   }
+}
+
+// Batch analyze with rate limiting to avoid API throttling
+export async function analyzeTickersBatch(tickers: string[], batchSize = 5): Promise<StockAnalysis[]> {
+  const results: StockAnalysis[] = [];
+  
+  for (let i = 0; i < tickers.length; i += batchSize) {
+    const batch = tickers.slice(i, i + batchSize);
+    const batchResults = await Promise.all(batch.map(t => analyzeTicker(t)));
+    results.push(...batchResults);
+    
+    // Small delay between batches to avoid rate limiting
+    if (i + batchSize < tickers.length) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+  
+  return results;
 }
