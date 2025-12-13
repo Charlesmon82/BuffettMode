@@ -975,7 +975,7 @@ function MarketNewsSidebar() {
   };
 
   return (
-    <div className="w-72 shrink-0 hidden lg:block ml-auto">
+    <div className="w-72 shrink-0 hidden lg:block">
       <div className="sticky top-24">
         <Card className="border-border bg-card">
           <CardHeader className="pb-3">
@@ -1062,7 +1062,7 @@ export default function Dashboard() {
       </header>
       
       {/* Main Content with Sidebar */}
-      <div className="container mx-auto px-6 py-8 flex gap-6">
+      <div className="container mx-auto px-6 py-8 flex gap-10">
         <main className="flex-1 min-w-0">
         <Tabs defaultValue="scan" className="space-y-6">
           <TabsList className="bg-card border border-border p-1">
