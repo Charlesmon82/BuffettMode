@@ -26,7 +26,11 @@ import {
   BookOpen,
   Calculator,
   Scale,
-  Target
+  Target,
+  ChevronDown,
+  ThumbsUp,
+  ThumbsDown,
+  Minus
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -85,7 +89,97 @@ const sectorIcons: Record<string, React.ReactNode> = {
   communication: <BarChart3 className="h-5 w-5" />,
 };
 
+function getReasoningPoints(stock: StockAnalysis): { positive: string[]; negative: string[]; neutral: string[] } {
+  const positive: string[] = [];
+  const negative: string[] = [];
+  const neutral: string[] = [];
+
+  // Margin of Safety analysis (primary rating factor)
+  if (stock.Margin_of_Safety !== null) {
+    if (stock.Margin_of_Safety > 0.3) {
+      positive.push(`Trading ${formatPercent(stock.Margin_of_Safety)} below intrinsic value - significant discount`);
+    } else if (stock.Margin_of_Safety > 0) {
+      neutral.push(`Trading ${formatPercent(stock.Margin_of_Safety)} below intrinsic value - modest discount`);
+    } else {
+      negative.push(`Trading ${formatPercent(Math.abs(stock.Margin_of_Safety))} above intrinsic value - overvalued`);
+    }
+  }
+
+  // Price vs Intrinsic Value
+  if (stock.price !== null && stock.Intrinsic_Value !== null) {
+    if (stock.price < stock.Intrinsic_Value * 0.7) {
+      positive.push(`Current price ($${stock.price.toFixed(2)}) is well below fair value ($${stock.Intrinsic_Value.toFixed(2)})`);
+    } else if (stock.price > stock.Intrinsic_Value) {
+      negative.push(`Current price ($${stock.price.toFixed(2)}) exceeds fair value ($${stock.Intrinsic_Value.toFixed(2)})`);
+    }
+  }
+
+  // ROE analysis
+  if (stock.ROE !== null) {
+    const roePercent = stock.ROE * 100;
+    if (roePercent > 20) {
+      positive.push(`Excellent ROE of ${roePercent.toFixed(1)}% - highly efficient use of equity`);
+    } else if (roePercent > 15) {
+      positive.push(`Good ROE of ${roePercent.toFixed(1)}% - solid returns for shareholders`);
+    } else if (roePercent > 10) {
+      neutral.push(`Average ROE of ${roePercent.toFixed(1)}% - acceptable returns`);
+    } else if (roePercent > 0) {
+      negative.push(`Low ROE of ${roePercent.toFixed(1)}% - poor capital efficiency`);
+    } else {
+      negative.push(`Negative ROE - company is losing money`);
+    }
+  }
+
+  // ROIC analysis
+  if (stock.ROIC !== null) {
+    const roicPercent = stock.ROIC * 100;
+    if (roicPercent > 15) {
+      positive.push(`Strong ROIC of ${roicPercent.toFixed(1)}% - creating value from investments`);
+    } else if (roicPercent > 10) {
+      neutral.push(`Decent ROIC of ${roicPercent.toFixed(1)}% - reasonable investment returns`);
+    } else if (roicPercent > 0) {
+      negative.push(`Weak ROIC of ${roicPercent.toFixed(1)}% - poor investment returns`);
+    }
+  }
+
+  // FCF Yield analysis
+  if (stock.FCF_Yield !== null) {
+    const fcfPercent = stock.FCF_Yield * 100;
+    if (fcfPercent > 8) {
+      positive.push(`High FCF Yield of ${fcfPercent.toFixed(1)}% - strong cash generation`);
+    } else if (fcfPercent > 5) {
+      positive.push(`Good FCF Yield of ${fcfPercent.toFixed(1)}% - healthy cash flow`);
+    } else if (fcfPercent > 2) {
+      neutral.push(`Moderate FCF Yield of ${fcfPercent.toFixed(1)}%`);
+    } else if (fcfPercent > 0) {
+      negative.push(`Low FCF Yield of ${fcfPercent.toFixed(1)}% - limited cash generation`);
+    } else {
+      negative.push(`Negative FCF - company is burning cash`);
+    }
+  }
+
+  // Debt-to-Equity analysis
+  if (stock.Debt_to_Equity !== null) {
+    if (stock.Debt_to_Equity < 0.3) {
+      positive.push(`Very low debt (D/E: ${stock.Debt_to_Equity.toFixed(2)}) - strong balance sheet`);
+    } else if (stock.Debt_to_Equity < 0.5) {
+      positive.push(`Low debt (D/E: ${stock.Debt_to_Equity.toFixed(2)}) - conservative financing`);
+    } else if (stock.Debt_to_Equity < 1) {
+      neutral.push(`Moderate debt (D/E: ${stock.Debt_to_Equity.toFixed(2)}) - manageable leverage`);
+    } else if (stock.Debt_to_Equity < 2) {
+      negative.push(`High debt (D/E: ${stock.Debt_to_Equity.toFixed(2)}) - elevated financial risk`);
+    } else {
+      negative.push(`Very high debt (D/E: ${stock.Debt_to_Equity.toFixed(2)}) - significant financial risk`);
+    }
+  }
+
+  return { positive, negative, neutral };
+}
+
 function StockCard({ stock }: { stock: StockAnalysis }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const reasoning = getReasoningPoints(stock);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -139,6 +233,93 @@ function StockCard({ stock }: { stock: StockAnalysis }) {
           </p>
         </div>
       </div>
+
+      {/* Expandable Reasoning Section */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full mt-3 pt-3 border-t border-border flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-white transition-colors"
+        data-testid={`button-expand-${stock.ticker}`}
+      >
+        <span>Why {stock.Rating}?</span>
+        <ChevronDown className={cn("h-4 w-4 transition-transform", isExpanded && "rotate-180")} />
+      </button>
+
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="pt-3 space-y-3">
+              {/* Positive Factors */}
+              {reasoning.positive.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 text-green-400 text-xs font-medium">
+                    <ThumbsUp className="h-3 w-3" />
+                    STRENGTHS
+                  </div>
+                  {reasoning.positive.map((point, i) => (
+                    <div key={i} className="flex items-start gap-2 text-xs bg-green-500/10 border border-green-500/20 rounded-lg p-2">
+                      <CheckCircle2 className="h-3 w-3 text-green-400 shrink-0 mt-0.5" />
+                      <span className="text-green-400/90">{point}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Neutral Factors */}
+              {reasoning.neutral.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 text-yellow-400 text-xs font-medium">
+                    <Minus className="h-3 w-3" />
+                    NEUTRAL
+                  </div>
+                  {reasoning.neutral.map((point, i) => (
+                    <div key={i} className="flex items-start gap-2 text-xs bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-2">
+                      <AlertTriangle className="h-3 w-3 text-yellow-400 shrink-0 mt-0.5" />
+                      <span className="text-yellow-400/90">{point}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Negative Factors */}
+              {reasoning.negative.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 text-red-400 text-xs font-medium">
+                    <ThumbsDown className="h-3 w-3" />
+                    CONCERNS
+                  </div>
+                  {reasoning.negative.map((point, i) => (
+                    <div key={i} className="flex items-start gap-2 text-xs bg-red-500/10 border border-red-500/20 rounded-lg p-2">
+                      <XCircle className="h-3 w-3 text-red-400 shrink-0 mt-0.5" />
+                      <span className="text-red-400/90">{point}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Rating Summary */}
+              <div className={cn(
+                "text-xs p-2 rounded-lg border",
+                stock.Rating === "BUY" && "bg-green-500/10 border-green-500/30 text-green-400",
+                stock.Rating === "HOLD" && "bg-yellow-500/10 border-yellow-500/30 text-yellow-400",
+                stock.Rating === "AVOID" && "bg-red-500/10 border-red-500/30 text-red-400",
+                stock.Rating === "DATA_INCOMPLETE" && "bg-gray-500/10 border-gray-500/30 text-gray-400"
+              )}>
+                <strong>Conclusion:</strong>{" "}
+                {stock.Rating === "BUY" && "Stock is significantly undervalued with a margin of safety above 30%."}
+                {stock.Rating === "HOLD" && "Stock is slightly undervalued but doesn't meet the 30% margin of safety threshold."}
+                {stock.Rating === "AVOID" && "Stock is trading at or above its intrinsic value - wait for a better entry point."}
+                {stock.Rating === "DATA_INCOMPLETE" && "Insufficient financial data to make a recommendation."}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
