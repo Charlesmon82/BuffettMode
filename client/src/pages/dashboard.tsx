@@ -22,7 +22,11 @@ import {
   BarChart3,
   Briefcase,
   Layers,
-  RefreshCw
+  RefreshCw,
+  BookOpen,
+  Calculator,
+  Scale,
+  Target
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -427,6 +431,210 @@ function PortfolioBuilder() {
   );
 }
 
+function Methodology() {
+  return (
+    <div className="space-y-8">
+      {/* Overview */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/30 rounded-xl p-6"
+      >
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
+            <BookOpen className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-white mb-2">Warren Buffett's Value Investing Approach</h3>
+            <p className="text-muted-foreground">
+              This app uses fundamental analysis metrics championed by Warren Buffett to identify undervalued stocks. 
+              The goal is to find companies with strong financials trading below their intrinsic (true) value.
+            </p>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Metrics Explained */}
+      <div>
+        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <Calculator className="h-5 w-5 text-primary" />
+          Key Metrics Explained
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="bg-card border border-border rounded-xl p-5"
+          >
+            <h4 className="font-bold text-white mb-2">ROE (Return on Equity)</h4>
+            <p className="text-sm text-muted-foreground mb-3">
+              Measures how efficiently a company uses shareholders' money to generate profits.
+            </p>
+            <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+              <p className="text-sm text-green-400">
+                <strong>Good:</strong> Above 15% indicates the company is generating strong returns for shareholders.
+              </p>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="bg-card border border-border rounded-xl p-5"
+          >
+            <h4 className="font-bold text-white mb-2">ROIC (Return on Invested Capital)</h4>
+            <p className="text-sm text-muted-foreground mb-3">
+              Shows how well the company invests its total capital (both debt and equity) to generate returns.
+            </p>
+            <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+              <p className="text-sm text-green-400">
+                <strong>Good:</strong> Above 10% means the company is creating value from its investments.
+              </p>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="bg-card border border-border rounded-xl p-5"
+          >
+            <h4 className="font-bold text-white mb-2">FCF Yield (Free Cash Flow Yield)</h4>
+            <p className="text-sm text-muted-foreground mb-3">
+              The percentage of free cash flow relative to the company's market value. Higher is better.
+            </p>
+            <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+              <p className="text-sm text-green-400">
+                <strong>Good:</strong> Above 5% suggests the stock may be undervalued relative to its cash generation.
+              </p>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="bg-card border border-border rounded-xl p-5"
+          >
+            <h4 className="font-bold text-white mb-2">D/E Ratio (Debt-to-Equity)</h4>
+            <p className="text-sm text-muted-foreground mb-3">
+              Measures how much debt the company uses compared to shareholder equity. Lower means less financial risk.
+            </p>
+            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
+              <p className="text-sm text-yellow-400">
+                <strong>Ideal:</strong> Below 0.5 is excellent. Above 2.0 indicates high debt levels.
+              </p>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+
+      {/* Intrinsic Value */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+      >
+        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <Target className="h-5 w-5 text-primary" />
+          Intrinsic Value Calculation
+        </h3>
+        <div className="bg-card border border-border rounded-xl p-6">
+          <p className="text-muted-foreground mb-4">
+            We calculate intrinsic value using a simplified Gordon Growth Model based on Earnings Per Share (EPS):
+          </p>
+          <div className="bg-background/50 rounded-lg p-4 font-mono text-sm text-center mb-4">
+            <span className="text-primary">Intrinsic Value</span> = (EPS × (1 + Growth Rate)) / (Discount Rate - Growth Rate)
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div className="bg-muted/30 rounded-lg p-3">
+              <p className="text-white font-medium">Growth Rate: 5%</p>
+              <p className="text-muted-foreground">Conservative estimate of long-term earnings growth</p>
+            </div>
+            <div className="bg-muted/30 rounded-lg p-3">
+              <p className="text-white font-medium">Discount Rate: 9%</p>
+              <p className="text-muted-foreground">Required rate of return (reflects risk)</p>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Margin of Safety */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.35 }}
+      >
+        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <Scale className="h-5 w-5 text-primary" />
+          Margin of Safety & Ratings
+        </h3>
+        <div className="bg-card border border-border rounded-xl p-6">
+          <p className="text-muted-foreground mb-4">
+            The <strong className="text-white">Margin of Safety</strong> is the difference between a stock's intrinsic value and its current price. 
+            A positive margin means the stock is trading below its true worth.
+          </p>
+          <div className="bg-background/50 rounded-lg p-4 font-mono text-sm text-center mb-6">
+            <span className="text-primary">Margin of Safety</span> = (Intrinsic Value - Current Price) / Intrinsic Value
+          </div>
+          
+          <h4 className="font-semibold text-white mb-3">How Ratings Are Determined:</h4>
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+              <CheckCircle2 className="h-6 w-6 text-green-400 shrink-0" />
+              <div>
+                <p className="font-bold text-green-400">BUY</p>
+                <p className="text-sm text-green-400/80">
+                  Stock price is more than 30% below intrinsic value (Margin of Safety &gt; 30%)
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+              <AlertTriangle className="h-6 w-6 text-yellow-400 shrink-0" />
+              <div>
+                <p className="font-bold text-yellow-400">HOLD</p>
+                <p className="text-sm text-yellow-400/80">
+                  Stock price is below intrinsic value but less than 30% discount (0% &lt; Margin of Safety ≤ 30%)
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+              <XCircle className="h-6 w-6 text-red-400 shrink-0" />
+              <div>
+                <p className="font-bold text-red-400">AVOID</p>
+                <p className="text-sm text-red-400/80">
+                  Stock price is at or above intrinsic value (Margin of Safety ≤ 0%) - considered overvalued
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Disclaimer */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-5"
+      >
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-yellow-400 shrink-0 mt-0.5" />
+          <div>
+            <h4 className="font-bold text-yellow-400 mb-1">Important Disclaimer</h4>
+            <p className="text-sm text-yellow-400/80">
+              This tool is for educational purposes only. The calculations use simplified models and should not be the sole basis 
+              for investment decisions. Always do thorough research and consider consulting a financial advisor before investing.
+            </p>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 function ScanAllStocks() {
   const [hasStarted, setHasStarted] = useState(false);
   
@@ -590,6 +798,10 @@ export default function Dashboard() {
               <Layers className="h-4 w-4 mr-2" />
               Scan All
             </TabsTrigger>
+            <TabsTrigger value="methodology" className="data-[state=active]:bg-primary data-[state=active]:text-white">
+              <BookOpen className="h-4 w-4 mr-2" />
+              How It Works
+            </TabsTrigger>
           </TabsList>
           
           <TabsContent value="scan">
@@ -656,6 +868,23 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <ScanAllStocks />
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="methodology">
+            <Card className="border-border bg-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BookOpen className="h-5 w-5 text-primary" />
+                  How It Works
+                </CardTitle>
+                <CardDescription>
+                  Learn how the Buffett Investment Engine analyzes stocks and makes recommendations.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Methodology />
               </CardContent>
             </Card>
           </TabsContent>
