@@ -1,0 +1,69 @@
+# BuffettMode 🧠📈
+
+**BuffettMode** is a stock analysis engine that evaluates public companies using
+Warren Buffett–style value investing principles.
+
+It focuses on **fundamental business strength**, not hype or short-term price action.
+
+---
+
+## 🔍 What BuffettMode Analyzes
+
+BuffettMode evaluates stocks using:
+
+- **ROE** – Return on Equity  
+- **ROIC** – Return on Invested Capital  
+- **Free Cash Flow Yield**
+- **Debt-to-Equity Ratio**
+- **Intrinsic Value (DCF-based)**
+- **Margin of Safety**
+- **Final Rating**: BUY / HOLD / AVOID / DATA_INCOMPLETE
+
+---
+
+## 🧠 Philosophy
+
+> "Price is what you pay. Value is what you get." — Warren Buffett
+
+BuffettMode prioritizes:
+- Consistent profitability
+- Capital efficiency
+- Conservative debt
+- Long-term intrinsic value
+
+---
+
+## 🧩 Project Structure
+
+```
+├── client/                 # React frontend
+│   └── src/
+│       └── pages/
+│           └── dashboard.tsx   # Main dashboard with all features
+├── server/
+│   ├── routes.ts           # API endpoints
+│   └── stock-analyzer.ts   # Yahoo Finance integration & metrics
+├── shared/
+│   └── schema.ts           # Data models & sector definitions
+└── package.json
+```
+
+---
+
+## 🚀 Features
+
+- **Stock Scanner** – Analyze individual stocks with Buffett-style metrics
+- **Sector Screener** – Screen entire sectors (350+ stocks across 10 sectors)
+- **Portfolio Builder** – Build portfolios with margin-of-safety-weighted allocation
+- **Scan All** – Analyze all stocks at once
+- **Market News** – Real-time financial news sidebar
+- **Expandable Analysis** – "Why BUY/HOLD/AVOID?" reasoning for each stock
+
+---
+
+## 🛠️ Tech Stack
+
+- **Frontend**: React, TypeScript, Tailwind CSS, shadcn/ui
+- **Backend**: Node.js, Express
+- **Data**: Yahoo Finance API (yahoo-finance2)
+- **News**: Finnhub API
