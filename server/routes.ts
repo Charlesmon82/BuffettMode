@@ -4,6 +4,8 @@ import { analyzeTicker, analyzeTickersBatch } from "./stock-analyzer";
 import { SECTOR_TICKERS, portfolioRequestSchema } from "@shared/schema";
 import type { StockAnalysis, SectorResult, PortfolioResult } from "@shared/schema";
 
+const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -191,6 +193,42 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Portfolio error:", error);
       res.status(500).json({ error: "Failed to build portfolio" });
+    }
+  });
+
+  // Market News from Finnhub
+  app.get("/api/market-news", async (_req, res) => {
+    try {
+      if (!FINNHUB_API_KEY) {
+        return res.status(500).json({ error: "Finnhub API key not configured" });
+      }
+      
+      const response = await fetch(
+        `https://finnhub.io/api/v1/news?category=general&token=${FINNHUB_API_KEY}`
+      );
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch news from Finnhub");
+      }
+      
+      const news = await response.json();
+      
+      // Return top 10 news items with only needed fields
+      const formattedNews = (news as any[]).slice(0, 10).map((item: any) => ({
+        id: item.id,
+        headline: item.headline,
+        summary: item.summary?.slice(0, 200) + (item.summary?.length > 200 ? "..." : ""),
+        source: item.source,
+        url: item.url,
+        image: item.image,
+        datetime: item.datetime,
+        related: item.related,
+      }));
+      
+      res.json({ news: formattedNews });
+    } catch (error) {
+      console.error("Market news error:", error);
+      res.status(500).json({ error: "Failed to fetch market news" });
     }
   });
 

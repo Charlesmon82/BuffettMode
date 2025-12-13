@@ -30,7 +30,10 @@ import {
   ChevronDown,
   ThumbsUp,
   ThumbsDown,
-  Minus
+  Minus,
+  Newspaper,
+  ExternalLink,
+  Clock
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -46,6 +49,17 @@ interface ScanAllResult {
   };
   top_10_by_margin_of_safety: StockAnalysis[];
   all_results: StockAnalysis[];
+}
+
+interface NewsItem {
+  id: number;
+  headline: string;
+  summary: string;
+  source: string;
+  url: string;
+  image: string;
+  datetime: number;
+  related: string;
 }
 
 const formatPercent = (val: number | null) => {
@@ -939,6 +953,94 @@ function ScanAllStocks() {
   );
 }
 
+function MarketNewsSidebar() {
+  const { data, isLoading } = useQuery<{ news: NewsItem[] }>({
+    queryKey: ["/api/market-news"],
+    queryFn: async () => {
+      const res = await fetch("/api/market-news");
+      if (!res.ok) throw new Error("Failed to fetch news");
+      return res.json();
+    },
+    refetchInterval: 5 * 60 * 1000, // Refresh every 5 minutes
+  });
+
+  const formatTime = (timestamp: number) => {
+    const date = new Date(timestamp * 1000);
+    const now = new Date();
+    const diffHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffHours < 1) return "Just now";
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return date.toLocaleDateString();
+  };
+
+  return (
+    <div className="w-80 shrink-0 hidden xl:block">
+      <div className="sticky top-24">
+        <Card className="border-border bg-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Newspaper className="h-4 w-4 text-primary" />
+              Market News
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 max-h-[calc(100vh-200px)] overflow-y-auto">
+            {isLoading && (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            )}
+            
+            {data?.news?.map((item, i) => (
+              <motion.a
+                key={item.id || i}
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.05 }}
+                className="block p-3 bg-background/50 border border-border rounded-lg hover:border-primary/50 hover:bg-background/80 transition-all group"
+                data-testid={`news-item-${i}`}
+              >
+                <div className="flex items-start gap-3">
+                  {item.image && (
+                    <img 
+                      src={item.image} 
+                      alt="" 
+                      className="w-16 h-12 object-cover rounded shrink-0"
+                      onError={(e) => (e.currentTarget.style.display = 'none')}
+                    />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-medium text-white line-clamp-2 group-hover:text-primary transition-colors">
+                      {item.headline}
+                    </h4>
+                    <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                      <span>{item.source}</span>
+                      <span>•</span>
+                      <Clock className="h-3 w-3" />
+                      <span>{formatTime(item.datetime)}</span>
+                    </div>
+                  </div>
+                  <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </motion.a>
+            ))}
+            
+            {!isLoading && (!data?.news || data.news.length === 0) && (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                <Newspaper className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No news available</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -959,8 +1061,9 @@ export default function Dashboard() {
         </div>
       </header>
       
-      {/* Main Content */}
-      <main className="container mx-auto px-6 py-8">
+      {/* Main Content with Sidebar */}
+      <div className="container mx-auto px-6 py-8 flex gap-6">
+        <main className="flex-1 min-w-0">
         <Tabs defaultValue="scan" className="space-y-6">
           <TabsList className="bg-card border border-border p-1">
             <TabsTrigger value="scan" className="data-[state=active]:bg-primary data-[state=active]:text-white">
@@ -1070,7 +1173,11 @@ export default function Dashboard() {
             </Card>
           </TabsContent>
         </Tabs>
-      </main>
+        </main>
+        
+        {/* News Sidebar */}
+        <MarketNewsSidebar />
+      </div>
     </div>
   );
 }
