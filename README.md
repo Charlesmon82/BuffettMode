@@ -95,3 +95,27 @@ BuffettMode prioritizes:
   "Rating": "AVOID"
 }
 ```
+
+---
+
+## ⚠️ Disclaimer
+
+This project is for **educational and research purposes only**.  
+It does **not** constitute financial advice.
+
+Always do your own research or consult a licensed financial professional.
+
+---
+
+## 📌 Roadmap
+
+- Sector comparison ✅
+- Portfolio builder ✅
+- Historical intrinsic value tracking
+- Alerts & watchlists
+
+---
+
+## 📄 License
+
+MIT
