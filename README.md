@@ -67,3 +67,31 @@ BuffettMode prioritizes:
 - **Backend**: Node.js, Express
 - **Data**: Yahoo Finance API (yahoo-finance2)
 - **News**: Finnhub API
+
+---
+
+## 🚀 How It Works
+
+1. Enter a stock ticker (e.g. `AAPL`, `GOOGL`)
+2. BuffettMode pulls financial data
+3. Metrics are calculated using value-investing formulas
+4. An intrinsic value and margin of safety are computed
+5. A final investment rating is returned
+
+---
+
+## 🧪 Example Output
+
+```json
+{
+  "ticker": "AAPL",
+  "price": 178.50,
+  "ROE": 0.147,
+  "ROIC": 0.312,
+  "FCF_Yield": 0.045,
+  "Debt_to_Equity": 1.81,
+  "Intrinsic_Value": 142.30,
+  "Margin_of_Safety": -0.254,
+  "Rating": "AVOID"
+}
+```
